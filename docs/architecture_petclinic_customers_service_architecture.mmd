@@ -1,0 +1,76 @@
+flowchart TB
+    %% MAIN APPLICATION ENTRY POINT
+    app([CustomersServiceApplication]):::entryPoint
+    
+    %% CONFIGURATION LAYER
+    subgraph Config_Tier [Configuration]
+        metricConfig[MetricConfig]:::config
+    end
+    
+    %% WEB/CONTROLLER LAYER
+    subgraph Web_Tier [Web Layer]
+        ownerResource[OwnerResource<br/>REST Controller]:::controller
+        petResource[PetResource<br/>REST Controller]:::controller
+        
+        ownerRequest[OwnerRequest<br/>DTO Record]:::dto
+        petRequest[PetRequest<br/>DTO Record]:::dto
+        petDetails[PetDetails<br/>Response DTO]:::dto
+        
+        mapperInterface[Mapper Interface]:::mapper
+        ownerMapper[OwnerEntityMapper<br/>Implements Mapper]:::mapper
+        
+        resourceNotFound[ResourceNotFoundException]:::exception
+    end
+    
+    %% DATA ACCESS LAYER
+    subgraph Data_Tier [Data Access Layer]
+        ownerEntity[Owner Entity]:::entity
+        petEntity[Pet Entity]:::entity
+        petType[PetType Entity]:::entity
+        
+        ownerRepo[OwnerRepository Interface<br/>extends JpaRepository]:::repository
+        petRepo[PetRepository Interface<br/>extends JpaRepository]:::repository
+    end
+    
+    %% SERVICE DISCOVERY INTEGRATION
+    serviceDiscovery([Service Discovery]):::external
+    
+    %% RELATIONSHIPS
+    app -->|Starts| ownerResource
+    app -->|Starts| petResource
+    app -->|Configures| metricConfig
+    
+    ownerResource -->|Uses| ownerRepo
+    ownerResource -->|Uses| ownerMapper
+    petResource -->|Uses| petRepo
+    
+    ownerMapper -.->|Implements| mapperInterface
+    ownerMapper -->|Converts| ownerRequest
+    ownerMapper -->|Creates| ownerEntity
+    
+    ownerEntity -->|Contains many| petEntity
+    petEntity -->|Belongs to| petType
+    
+    ownerRepo -->|Manages| ownerEntity
+    petRepo -->|Manages| petEntity
+    
+    app -.->|Registers with| serviceDiscovery
+    
+    %% DEFINITIONS
+    classDef entryPoint fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef config fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef controller fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef dto fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef mapper fill:#fce4ec,stroke:#b71c1c,stroke-width:2px
+    classDef exception fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef entity fill:#e0f7fa,stroke:#006064,stroke-width:2px
+    classDef repository fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    classDef external fill:#e8eaf6,stroke:#283593,stroke-width:2px
+    
+    %% NOTES
+    %% Layering: Entry Point → Configuration → Web Layer → Data Access → External
+    %% All components grounded in context: CustomersServiceApplication (cluster_3), MetricConfig (cluster_5),
+    %% OwnerResource/OwnerRequest/OwnerMapper (cluster_9), PetResource/PetRequest/PetDetails (cluster_1),
+    %% Owner/OwnerRepository (cluster_4), Pet/PetRepository/PetType (cluster_2),
+    %% Mapper interface (cluster_9), ResourceNotFoundException (cluster_0),
+    %% Service discovery from context: "discovery client enabled" in cluster_3
