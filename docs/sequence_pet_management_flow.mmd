@@ -1,0 +1,63 @@
+sequenceDiagram
+    %% Pet Management Flow through PetResource controller
+    %% Entities: PetResource, PetRepository, PetRequest, PetDetails, ResourceNotFoundException
+
+    actor Client as REST Client
+    participant PetResource as PetResource
+    participant PetRepository as PetRepository
+    participant PetRequest as PetRequest
+    participant PetDetails as PetDetails
+    participant ResourceNotFoundException as ResourceNotFoundException
+
+    %% Create Pet operation
+    rect rgb(240, 255, 240)
+        note over Client, PetDetails: Create Pet Request Flow
+        Client->>Client: Prepare PetRequest
+        Client->>PetResource: POST /pets (PetRequest body)
+        PetResource->>PetRequest: Validate PetRequest
+        PetResource->>PetRepository: save(pet)
+        PetRepository-->>PetResource: savedPet
+        PetResource->>PetDetails: Transform to PetDetails
+        PetDetails-->>PetResource: petDetails
+        PetResource-->>Client: Return PetDetails (201 Created)
+    end
+
+    %% Retrieve Pet operation with error handling
+    rect rgb(255, 240, 240)
+        note over Client, PetDetails: Retrieve Pet Request Flow
+        Client->>PetResource: GET /pets/{petId}
+        
+        alt Pet Not Found
+            PetResource->>PetRepository: findById(petId)
+            PetRepository-->>PetResource: Optional.empty()
+            PetResource->>ResourceNotFoundException: throw new ResourceNotFoundException
+            PetResource-->>Client: 404 Not Found
+        else Pet Found
+            PetResource->>PetRepository: findById(petId)
+            PetRepository-->>PetResource: Optional.of(pet)
+            PetResource->>PetDetails: Transform to PetDetails
+            PetDetails-->>PetResource: petDetails
+            PetResource-->>Client: Return PetDetails (200 OK)
+        end
+    end
+
+    %% Update Pet operation
+    rect rgb(240, 240, 255)
+        note over Client, PetDetails: Update Pet Request Flow
+        Client->>PetResource: PUT /pets/{petId} (PetRequest body)
+        
+        alt Pet Not Found
+            PetResource->>PetRepository: findById(petId)
+            PetRepository-->>PetResource: Optional.empty()
+            PetResource->>ResourceNotFoundException: throw new ResourceNotFoundException
+            PetResource-->>Client: 404 Not Found
+        else Pet Found
+            PetResource->>PetRepository: findById(petId)
+            PetRepository-->>PetResource: Optional.of(pet)
+            PetResource->>PetRepository: save(updatedPet)
+            PetRepository-->>PetResource: savedPet
+            PetResource->>PetDetails: Transform to PetDetails
+            PetDetails-->>PetResource: petDetails
+            PetResource-->>Client: Return PetDetails (200 OK)
+        end
+    end

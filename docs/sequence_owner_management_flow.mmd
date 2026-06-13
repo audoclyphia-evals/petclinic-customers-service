@@ -1,0 +1,52 @@
+sequenceDiagram
+    autonumber
+    participant Client as "REST Client"
+    participant OwnerResource as "OwnerResource"
+    participant OwnerMapper as "OwnerEntityMapper"
+    participant OwnerRepo as "OwnerRepository"
+    participant OwnerDB as "Owner Entity"
+    participant PetDB as "Pet Entity"
+    
+    Note over Client, PetDB: Owner Management Flow - CRUD Operations
+    
+    %% Create Owner
+    Client->>+OwnerResource: POST /owners (OwnerRequest)
+    OwnerResource->>+OwnerMapper: map(new Owner(), request)
+    OwnerMapper-->>-OwnerResource: Owner entity
+    OwnerResource->>+OwnerRepo: save(owner)
+    OwnerRepo->>+OwnerDB: persist(owner)
+    OwnerDB-->>-OwnerRepo: persisted owner
+    OwnerRepo-->>-OwnerResource: saved owner
+    OwnerResource-->>-Client: 201 CREATED
+    
+    %% Update Owner
+    Client->>+OwnerResource: PUT /owners/{id} (OwnerRequest)
+    OwnerResource->>+OwnerRepo: findById(id)
+    OwnerRepo->>+OwnerDB: find(id)
+    OwnerDB-->>-OwnerRepo: existing owner
+    OwnerRepo-->>-OwnerResource: Optional<Owner>
+    OwnerResource->>+OwnerMapper: map(existingOwner, request)
+    OwnerMapper-->>-OwnerResource: updated owner
+    OwnerResource->>+OwnerRepo: save(updatedOwner)
+    OwnerRepo->>+OwnerDB: persist(updatedOwner)
+    OwnerDB-->>-OwnerRepo: persisted owner
+    OwnerRepo-->>-OwnerResource: saved owner
+    OwnerResource-->>-Client: 204 NO_CONTENT
+    
+    %% Get Owner by ID
+    Client->>+OwnerResource: GET /owners/{id}
+    OwnerResource->>+OwnerRepo: findById(id)
+    OwnerRepo->>+OwnerDB: find(id)
+    OwnerDB-->>-OwnerRepo: owner with pets
+    OwnerRepo-->>-OwnerResource: Optional<Owner>
+    OwnerResource-->>-Client: 200 OK (Owner with Pets)
+    
+    %% Get All Owners
+    Client->>+OwnerResource: GET /owners
+    OwnerResource->>+OwnerRepo: findAll()
+    OwnerRepo->>+OwnerDB: findAll
+    OwnerDB-->>-OwnerRepo: list of owners
+    OwnerRepo-->>-OwnerResource: List<Owner>
+    OwnerResource-->>-Client: 200 OK (List of Owners)
+    
+    Note right of OwnerDB: Owner entity has OneToMany relationship with Pet entity (cascade=ALL#59; EAGER fetch)
