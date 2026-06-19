@@ -1,0 +1,41 @@
+sequenceDiagram
+    %% Repository Analysis Flow
+    actor User as "User"
+    participant RepoService as "RepoAnalysisService"
+    participant DataStore as "DataStore"
+
+    %% Request repository overview
+    User->>+RepoService: request repo overview (repo_id)
+    RepoService->>DataStore: get_repository_overview(repo_id)
+    DataStore-->>RepoService: overview data (name, uri, file_count, files, languages)
+    RepoService-->>-User: return repository overview
+
+    %% Request cluster summaries
+    User->>+RepoService: request cluster summaries (repo_id)
+    RepoService->>DataStore: get_cluster_summaries(repo_id)
+    DataStore-->>RepoService: 7 cluster records
+    RepoService-->>-User: return cluster summaries
+
+    %% Request module hierarchy
+    User->>+RepoService: request module hierarchy (repo_id)
+    RepoService->>DataStore: get module hierarchy (batch)
+    DataStore-->>RepoService: 13 module records
+    RepoService-->>-User: return module hierarchy
+
+    %% Request repository dependencies
+    User->>+RepoService: request dependencies (repo_id)
+    RepoService->>DataStore: repository_dependencies(repo_id)
+    DataStore-->>RepoService: 1 dependency record
+    RepoService-->>-User: return dependencies
+
+    %% Request added nodes
+    User->>+RepoService: request added nodes (batch)
+    RepoService->>DataStore: get added nodes (batch)
+    DataStore-->>RepoService: 102 node records
+    RepoService-->>-User: return added nodes
+
+    %% Request entry points
+    User->>+RepoService: request entry points (batch)
+    RepoService->>DataStore: get entry points (batch)
+    DataStore-->>RepoService: 8 entry point records
+    RepoService-->>-User: return entry points

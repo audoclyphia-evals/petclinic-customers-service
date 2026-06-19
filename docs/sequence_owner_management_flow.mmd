@@ -1,0 +1,9 @@
+sequenceDiagram
+    participant User as "Client"
+    participant Service as "RepositoryService"
+    participant Store as "DataStore"
+
+    User->>Service: getRepositoryOverview(repo_id)
+    Service->>Store: fetch overview data
+    Store-->>Service: overview dict
+    Service-->>User: return overview

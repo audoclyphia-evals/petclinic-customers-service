@@ -1,0 +1,23 @@
+flowchart TB
+    user([User]) -->|HTTPS| gateway{{API Gateway}}
+    
+    subgraph Backend_Services [Backend Services]
+        gateway --> auth[Authentication Service]
+        gateway --> courses[Course Management]
+        gateway --> enrollments[Enrollment Service]
+        gateway --> payments[Payment Service]
+        gateway --> notifications[Notification Service]
+    end
+    
+    subgraph Storage_Tier [Storage Tier]
+        auth --> authDB[(User Database)]
+        courses --> courseDB[(Course Database)]
+        enrollments --> enrollmentDB[(Enrollment Database)]
+        payments --> paymentDB[(Payment Database)]
+    end
+    
+    subgraph External_Systems [External Systems]
+        payments --> paymentGateway[Payment Gateway API]
+        notifications --> emailService[Email Service]
+        enrollments --> inventorySystem[Inventory System]
+    end
