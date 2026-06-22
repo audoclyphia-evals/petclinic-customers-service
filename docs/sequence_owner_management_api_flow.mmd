@@ -1,0 +1,67 @@
+sequenceDiagram
+    %% Source: Context #5 (OwnerResource class)
+    actor Client as HTTP Client
+    participant OR as OwnerResource
+    %% Source: Context #5 (OwnerEntityMapper class)
+    participant OEM as OwnerEntityMapper
+    %% Source: Context #5 (OwnerRepository interface)
+    participant Repo as OwnerRepository
+    %% Source: Context #5 (Owner entity class)
+    participant DB as "Database/JPA"
+
+    Note over Client,DB: Owner Management API Flow
+    %% Source: Context #5 (OwnerResource.createOwner method)
+    rect rgb(240, 248, 255)
+        Note right of Client: POST /owners
+        Client->>+OR: createOwner(OwnerRequest)
+        OR->>+OEM: map(null, ownerRequest)
+        OEM-->>-OR: Owner entity
+        OR->>+Repo: save(owner)
+        Repo->>DB: persist(Owner)
+        DB-->>Repo: Saved
+        Repo-->>-OR: Optional<Owner>
+        OR-->>-Client: 201 Created
+    end
+
+    %% Source: Context #5 (OwnerResource.findAll method)
+    rect rgb(245, 245, 245)
+        Note right of Client: GET /owners
+        Client->>+OR: findAll()
+        OR->>+Repo: findAll()
+        Repo->>DB: select * from owners
+        DB-->>Repo: List<Owner>
+        Repo-->>-OR: List<Owner>
+        OR-->>-Client: 200 OK with list
+    end
+
+    %% Source: Context #5 (OwnerResource.findOwner method)
+    rect rgb(255, 245, 238)
+        Note right of Client: GET /owners/{ownerId}
+        Client->>+OR: findOwner(ownerId)
+        OR->>+Repo: findById(ownerId)
+        Repo->>DB: select by id
+        DB-->>Repo: Optional<Owner>
+        Repo-->>-OR: Optional<Owner>
+        OR-->>-Client: 200 OK or 404
+    end
+
+    %% Source: Context #5 (OwnerResource.updateOwner method)
+    rect rgb(240, 255, 240)
+        Note right of Client: PUT /owners/{ownerId}
+        Client->>+OR: updateOwner(ownerId, ownerRequest)
+        OR->>+Repo: findById(ownerId)
+        Repo->>DB: select by id
+        DB-->>Repo: Optional<Owner>
+        Repo-->>-OR: existingOwner
+        opt owner exists
+            OR->>+OEM: map(existingOwner, ownerRequest)
+            OEM-->>-OR: updatedOwner
+            OR->>+Repo: save(updatedOwner)
+            Repo->>DB: update
+            DB-->>Repo: Saved
+            Repo-->>-OR: Updated
+            OR-->>-Client: 204 No Content
+        else owner not found
+            OR-->>-Client: 404 Not Found
+        end
+    end
