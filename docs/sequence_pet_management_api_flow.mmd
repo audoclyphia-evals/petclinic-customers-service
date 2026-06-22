@@ -1,0 +1,49 @@
+sequenceDiagram
+    autonumber
+    participant Client as "HTTP Client"
+    participant PR as "PetResource"
+    participant PRepo as "PetRepository"
+    participant ORepo as "OwnerRepository"
+
+    %% Fetch Pet Types endpoint
+    Client->>+PR: GET /petTypes
+    PR->>+PRepo: findPetTypes()
+    PRepo-->>-PR: List of PetType
+    PR-->>-Client: 200 OK with PetType list
+
+    %% Create Pet flow
+    Client->>+PR: POST /owners/{ownerId}/pets
+    PR->>+ORepo: findById(ownerId)
+    alt Owner exists
+        ORepo-->>-PR: Optional Owner found
+        PR->>+PRepo: save(pet)
+        PRepo-->>-PR: saved Pet
+        PR-->>-Client: 201 Created with Pet
+    else Owner not found
+        ORepo-->>-PR: empty Optional
+        PR-->>Client: 404 Not Found
+    end
+
+    %% Update Pet flow
+    Client->>+PR: PUT /owners/*/pets/{petId}
+    PR->>+PRepo: findById(petId)
+    alt Pet exists
+        PRepo-->>-PR: Optional Pet found
+        PR->>+PRepo: save(pet)
+        PRepo-->>-PR: saved Pet
+        PR-->>-Client: 204 No Content
+    else Pet not found
+        PRepo-->>-PR: empty Optional
+        PR-->>Client: 404 Not Found
+    end
+
+    %% Find Pet flow
+    Client->>+PR: GET owners/*/pets/{petId}
+    PR->>+PRepo: findById(petId)
+    alt Pet exists
+        PRepo-->>-PR: Optional Pet found
+        PR-->>-Client: 200 OK with PetDetails
+    else Pet not found
+        PRepo-->>-PR: empty Optional
+        PR-->>Client: 404 Not Found
+    end
