@@ -1,0 +1,111 @@
+---
+config:
+  layout: elk
+---
+classDiagram
+    direction TB
+
+    %% Entity classes in model package
+    namespace model {
+        class Owner {
+            <<Entity>>
+            -id: Integer
+            -firstName: String
+            -lastName: String
+            -address: String
+            -city: String
+            -telephone: String
+            -pets: Set~Pet~
+            +getId(): Integer
+            +getFirstName(): String
+            +getLastName(): String
+            +getAddress(): String
+            +getCity(): String
+            +getTelephone(): String
+            +setFirstName(firstName: String): void
+            +setLastName(lastName: String): void
+            +setAddress(address: String): void
+            +setCity(city: String): void
+            +setTelephone(telephone: String): void
+            +getPets(): List~Pet~
+            +addPet(pet: Pet): void
+        }
+
+        class Pet {
+            <<Entity>>
+            -id: Integer
+            -name: String
+            -birthDate: Date
+            -type: PetType
+            -owner: Owner
+            +getId(): Integer
+            +getName(): String
+            +getBirthDate(): Date
+            +getType(): PetType
+            +getOwner(): Owner
+            +setId(id: Integer): void
+            +setName(name: String): void
+            +setBirthDate(birthDate: Date): void
+            +setType(type: PetType): void
+            +setOwner(owner: Owner): void
+        }
+
+        class PetType {
+            <<Entity>>
+            -id: Integer
+            -name: String
+            +getId(): Integer
+            +getName(): String
+            +setId(id: Integer): void
+            +setName(name: String): void
+        }
+
+        class OwnerRepository {
+            <<Interface>>
+            +findByLastNameStartingWithIgnoreCase(lastName: String): List~Owner~
+        }
+
+        class PetRepository {
+            <<Interface>>
+            +findPetTypes(): List~PetType~
+            +findPetTypeById(typeId: int): Optional~PetType~
+        }
+    }
+
+    %% DTOs in web package
+    namespace web {
+        class OwnerRequest {
+            <<DTO>>
+        }
+        class PetRequest {
+            <<DTO>>
+        }
+        class PetDetails {
+            <<DTO>>
+        }
+    }
+
+    %% Mapper classes in web.mapper package
+    namespace web_mapper {
+        class Mapper {
+            <<Interface>>
+            +map(response: E, request: R): E
+        }
+
+        class OwnerEntityMapper {
+            <<Class>>
+            +map(owner: Owner, request: OwnerRequest): Owner
+        }
+    }
+
+    %% Relationships
+    Owner "1" -- "0..*" Pet : owns
+    Pet "0..*" -- "1" PetType : is type of
+
+    OwnerRepository ..> Owner : returns
+    PetRepository ..> Pet : returns
+    PetRepository ..> PetType : returns
+
+    OwnerEntityMapper ..|> Mapper : implements
+    OwnerEntityMapper ..> OwnerRequest : uses
+    OwnerEntityMapper ..> Owner : maps to

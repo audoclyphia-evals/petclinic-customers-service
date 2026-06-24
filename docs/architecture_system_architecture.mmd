@@ -1,0 +1,84 @@
+flowchart TB
+    subgraph External_Layer [External Layer]
+        direction LR
+        web_browser([Web Browser])
+        mini_program([Mini Program])
+    end
+
+    subgraph Gateway_Layer [API Gateway Layer]
+        direction LR
+        duty_gateway{{Duty Gateway}}
+        duty_auth{{Duty Auth}}
+    end
+
+    subgraph Business_Layer [Core Business Layer]
+        direction LR
+        subgraph Guest_MS [Guest Microservice]
+            duty_callbacks[Callback Service]
+            duty_portal[Portal Service]
+            duty_auth_svc[Auth Service]
+            youth_portal[Youth Portal]
+        end
+
+        subgraph Archive_MS [Archive Microservice]
+            job_company[Job Company]
+            job_youth[Job Youth]
+        end
+    end
+
+    subgraph Core_Service [Core Service Layer]
+        direction LR
+        duty_core[Core Service]
+        message_task[Message Task]
+        duty_message[Message Management]
+    end
+
+    subgraph Technical_Framework [Technical Framework Layer]
+        direction LR
+        duty_architecture[Duty Architecture]
+        duty_mappings[Duty Mappings]
+        duty_jobs[Duty Jobs]
+        duty_common[Duty Common]
+    end
+
+    subgraph Infrastructure [Infrastructure Layer]
+        direction LR
+        modulus_jwt[(Certificate Storage)]
+        modulus_web[(Website Storage)]
+        modulus_questionnaire[(Questionnaire Storage)]
+        modulus_queue_job[(Rate Limit Queue)]
+    end
+
+    %% External to Gateway
+    web_browser -->|"HTTP"| duty_gateway
+    mini_program -->|"HTTP"| duty_gateway
+
+    %% Gateway routing
+    duty_gateway --> duty_portal
+    duty_gateway --> duty_auth_svc
+    duty_gateway --> youth_portal
+    duty_gateway --> duty_callbacks
+    duty_gateway --> job_company
+    duty_gateway --> job_youth
+
+    %% Business to Core
+    duty_callbacks --> duty_core
+    duty_portal --> duty_core
+    duty_auth_svc --> duty_core
+    youth_portal --> duty_core
+    job_company --> duty_core
+    job_youth --> duty_core
+    duty_core --> message_task
+    duty_core --> duty_message
+
+    %% Core to Framework
+    duty_core --> duty_architecture
+    duty_core --> duty_common
+    duty_architecture --> duty_mappings
+    duty_architecture --> duty_jobs
+
+    %% Framework to Infrastructure
+    duty_mappings --> modulus_jwt
+    duty_mappings --> modulus_web
+    duty_mappings --> modulus_questionnaire
+    duty_jobs --> modulus_queue_job

@@ -1,0 +1,48 @@
+sequenceDiagram
+    autonumber
+    participant Client as Client
+    participant PR as PetResource
+    participant Pet as Pet
+    participant PRepo as PetRepository
+    participant ORepo as OwnerRepository
+    participant PT as PetType
+
+    rect rgb(230, 245, 255)
+    note over Client, PT: Create Pet Flow
+    Client->>+PR: POST /owners/{ownerId}/pets
+    PR->>ORepo: Find owner by ID
+    ORepo-->>PR: Return owner
+    PR->>Pet: Create pet from request
+    PR->>PRepo: Save pet
+    PRepo-->>PR: Return saved pet
+    PR-->>-Client: 201 Created
+    end
+
+    rect rgb(255, 245, 230)
+    note over Client, PT: Update Pet Flow
+    Client->>+PR: PUT /owners/*/pets/{petId}
+    PR->>PRepo: Find pet by ID
+    PRepo-->>PR: Return existing pet
+    PR->>Pet: Update pet fields
+    PR->>PRepo: Save updated pet
+    PRepo-->>PR: Return updated pet
+    PR-->>-Client: 204 No Content
+    end
+
+    rect rgb(230, 255, 230)
+    note over Client, PT: Find Pet Flow
+    Client->>+PR: GET owners/*/pets/{petId}
+    PR->>PRepo: Find pet by ID
+    PRepo-->>PR: Return pet
+    PR-->>-Client: 200 OK (PetDetails)
+    end
+
+    rect rgb(255, 230, 245)
+    note over Client, PT: Get PetTypes Flow
+    Client->>+PR: GET /petTypes
+    PR->>PRepo: findPetTypes()
+    PRepo->>PT: Query pet types
+    PT-->>PRepo: Return pet type list
+    PRepo-->>PR: Return pet type list
+    PR-->>-Client: 200 OK (List of PetType)
+    end
