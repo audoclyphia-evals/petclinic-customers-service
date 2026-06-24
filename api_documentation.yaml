@@ -6,53 +6,47 @@ info:
 paths:
   /petTypes:
     get:
-      summary: Retrieve all pet types
-      description: Returns a list of all available pet types from the repository
+      summary: HTTP endpoint to retrieve all pet types from the repository
+      description: Retrieves a list of all available pet types from the pet repository.
       operationId: getPetTypes
       tags:
-      - PetType
+      - Pet Types
       responses:
         '200':
-          description: Successful retrieval of pet types list
+          description: Success
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
         '500':
           description: Internal server error
-  /owners/{ownerId}/pets:
-    post:
-      summary: Create a new pet for an owner
-      description: Creates a new pet record associated with the specified owner
-      operationId: createPetForOwner
+  /owners/search:
+    get:
+      summary: Search owners by last name prefix
+      description: Returns owners filtered by last name prefix, or all owners if blank.
+      operationId: searchOwners
       tags:
-      - Pets
+      - owners
       responses:
-        '201':
-          description: Pet created successfully
+        '200':
+          description: List of owners matching search criteria
         '400':
-          description: Invalid request
-        '404':
-          description: Owner not found
+          description: Bad request
+        '401':
+          description: Unauthorized
         '500':
           description: Internal server error
       parameters:
-      - name: ownerId
-        in: path
-        required: true
+      - name: lastName
+        in: query
+        required: false
         schema:
-          type: integer
-          minimum: 1
-        description: Unique identifier of the owner
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: []
-              properties: {}
+          type: string
+        description: Last name prefix to search for
   /owners:
     post:
-      summary: Create a new owner
-      description: Creates a new owner entity from the provided request data and returns
-        the created owner.
+      summary: REST endpoint to create a new Owner
+      description: Creates a new Owner resource with the provided details.
       operationId: createOwner
       tags:
       - Owner
@@ -60,7 +54,9 @@ paths:
         '201':
           description: Owner created successfully
         '400':
-          description: Bad request (validation error)
+          description: Invalid input data
+        '401':
+          description: Unauthorized
         '500':
           description: Internal server error
       requestBody:
@@ -69,14 +65,38 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+              - firstName
+              - lastName
+              - address
+              - city
+              - telephone
               properties:
-                ownerRequest:
-                  type: object
-                  description: Owner creation request data
+                firstName:
+                  type: string
+                  description: First name of the owner
+                lastName:
+                  type: string
+                  description: Last name of the owner
+                address:
+                  type: string
+                  description: Address of the owner
+                city:
+                  type: string
+                  description: City of the owner
+                telephone:
+                  type: string
+                  description: Telephone number of the owner (max 12 digits)
+            example:
+              firstName: John
+              lastName: Doe
+              address: 123 Main St
+              city: Anytown
+              telephone: '1234567890'
     get:
-      summary: REST endpoint to retrieve all owners.
-      description: Documentation generation skipped due to insufficient context (code_snippets
-        < 100 chars, no related context, summary < 50 chars)
+      summary: REST endpoint to retrieve all Owners
+      description: Documentation generation skipped due to LLM timeout (120s limit
+        exceeded)
       operationId: ''
       tags: []
       responses:
@@ -84,68 +104,11 @@ paths:
           description: Success
   /owners/{ownerId}:
     get:
-      summary: Retrieve a single owner by ID
-      description: Fetches an owner record using their unique identifier.
+      summary: Retrieve a single Owner by ID
+      description: REST endpoint to retrieve a single Owner by ID
       operationId: findOwner
       tags:
       - Owner
-      responses:
-        '200':
-          description: Owner found successfully
-        '404':
-          description: Owner not found
-        '400':
-          description: Invalid owner ID provided
-        '500':
-          description: Internal server error
-      parameters:
-      - name: ownerId
-        in: path
-        required: true
-        schema:
-          type: integer
-        description: Unique identifier of the owner, must be at least 1
-    put:
-      summary: Update an existing owner
-      description: Updates owner details by ID using provided data
-      operationId: updateOwner
-      tags:
-      - Owners
-      responses:
-        '204':
-          description: Owner updated successfully
-        '400':
-          description: Invalid input or validation error
-        '401':
-          description: Unauthorized access
-        '404':
-          description: Owner not found
-        '500':
-          description: Internal server error
-      parameters:
-      - name: ownerId
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-        description: Unique identifier of the owner
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              description: Owner update data (schema inferred from code - OwnerRequest
-                class details not available in snippets)
-  /owners/*/pets/{petId}:
-    get:
-      summary: Endpoint to retrieve a pet by ID and return details
-      description: Retrieves a pet by ID and returns detailed information about the
-        pet
-      operationId: findPet
-      tags:
-      - Pets
       responses:
         '200':
           description: Success
@@ -156,23 +119,84 @@ paths:
         '500':
           description: Internal server error
       parameters:
-      - name: petId
+      - name: ownerId
         in: path
         required: true
         schema:
           type: integer
-        description: Pet identifier
+        description: Owner identifier
     put:
-      summary: Update an existing pet
-      description: Updates pet details for a given pet ID using pet request body.
-      operationId: updatePet
+      summary: Update an existing owner
+      description: Updates an existing owner by ID with the provided owner details.
+      operationId: updateOwner
+      tags:
+      - Owner
+      responses:
+        '204':
+          description: Owner updated successfully
+        '400':
+          description: Invalid request body
+        '404':
+          description: Owner not found
+        '500':
+          description: Internal server error
+      parameters:
+      - name: ownerId
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        description: Unique identifier of the owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - firstName
+              - lastName
+              - address
+              - city
+              - telephone
+              properties:
+                firstName:
+                  type: string
+                  description: First name of the owner
+                lastName:
+                  type: string
+                  description: Last name of the owner
+                address:
+                  type: string
+                  description: Address of the owner
+                city:
+                  type: string
+                  description: City of the owner
+                telephone:
+                  type: string
+                  description: Telephone number of the owner
+            example:
+              firstName: John
+              lastName: Doe
+              address: 123 Main St
+              city: Anytown
+              telephone: 555-1234
+  /owners/*/pets/{petId}:
+    get:
+      summary: Retrieve specific pet details by ID
+      description: Retrieves details of a pet by its unique identifier. Throws ResourceNotFoundException
+        if not found.
+      operationId: findPet
       tags:
       - Pets
       responses:
-        '204':
-          description: No Content
+        '200':
+          description: Successful retrieval of pet details
         '400':
-          description: Bad request
+          description: Bad request due to invalid parameters
+        '401':
+          description: Unauthorized access
         '404':
           description: Pet not found
         '500':
@@ -183,7 +207,31 @@ paths:
         required: true
         schema:
           type: integer
-        description: ID of the pet to update
+        description: Unique identifier of the pet
+    put:
+      summary: Update an existing pet's details
+      description: Updates an existing pet's details with provided information.
+      operationId: updatePet
+      tags:
+      - Pets
+      responses:
+        '204':
+          description: Pet updated successfully
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Pet not found
+        '500':
+          description: Internal server error
+      parameters:
+      - name: petId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Pet identifier
       requestBody:
         required: true
         content:
@@ -192,14 +240,74 @@ paths:
               type: object
               required:
               - id
+              - name
+              - birthDate
+              - typeId
               properties:
                 id:
                   type: integer
-                  description: Pet identifier
+                  description: Pet ID
+                name:
+                  type: string
+                  description: Pet name
+                birthDate:
+                  type: string
+                  description: Pet birth date in ISO format
+                typeId:
+                  type: integer
+                  description: Pet type ID
             example:
               id: 1
+              name: Fido
+              birthDate: '2020-01-01'
+              typeId: 1
+  /owners/{ownerId}/pets:
+    post:
+      summary: Create a new pet for a specific owner
+      description: Creates a new pet associated with the given owner ID. Returns the
+        created pet.
+      operationId: createPetForOwner
+      tags:
+      - Pets
+      responses:
+        '201':
+          description: Pet created successfully
+        '400':
+          description: Bad request - invalid input
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      parameters:
+      - name: ownerId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: The ID of the owner to create the pet for
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - name
+              - birthDate
+              - typeId
+              properties:
+                name:
+                  type: string
+                  description: Name of the pet
+                birthDate:
+                  type: string
+                  format: date
+                  description: Birth date of the pet
+                typeId:
+                  type: integer
+                  description: The ID of the pet type
 tags:
 - name: Owner
-- name: Owners
-- name: PetType
+- name: Pet Types
 - name: Pets
+- name: owners

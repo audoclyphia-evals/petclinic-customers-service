@@ -1,0 +1,88 @@
+sequenceDiagram
+    %% Owner/Pet CRUD Flows - Sequence Diagram
+    %% Participants derived from repository context
+    actor Client as "Client (Browser/API)"
+    participant OwnerRes as OwnerResource
+    participant PetRes as PetResource
+    participant OwnerRepo as OwnerRepository
+    participant PetRepo as PetRepository
+    participant OwnerMapper as OwnerEntityMapper
+
+    autonumber
+
+    Client->>OwnerRes: POST /owners
+    activate OwnerRes
+    OwnerRes->>OwnerMapper: map(OwnerRequest)
+    OwnerMapper-->>OwnerRes: Owner entity
+    OwnerRes->>OwnerRepo: save(Owner)
+    OwnerRepo-->>OwnerRes: saved Owner
+    OwnerRes-->>Client: 201 Created
+    deactivate OwnerRes
+
+    Client->>OwnerRes: GET /owners/{ownerId}
+    activate OwnerRes
+    OwnerRes->>OwnerRepo: findById(ownerId)
+    alt Owner found
+        OwnerRepo-->>OwnerRes: Owner
+        OwnerRes-->>Client: 200 Owner
+    else Owner not found
+        OwnerRepo-->>OwnerRes: empty
+        OwnerRes-->>Client: 404 Not Found
+    end
+    deactivate OwnerRes
+
+    Client->>OwnerRes: GET /owners or /owners/search
+    activate OwnerRes
+    OwnerRes->>OwnerRepo: findAll or findByLastName
+    OwnerRepo-->>OwnerRes: List of Owners
+    OwnerRes-->>Client: 200 Owners
+    deactivate OwnerRes
+
+    Client->>OwnerRes: PUT /owners/{ownerId}
+    activate OwnerRes
+    OwnerRes->>OwnerMapper: map Owner with OwnerRequest
+    OwnerMapper-->>OwnerRes: updated Owner
+    OwnerRes->>OwnerRepo: save(Owner)
+    OwnerRepo-->>OwnerRes: updated Owner
+    OwnerRes-->>Client: 204 No Content
+    deactivate OwnerRes
+
+    Client->>PetRes: POST /owners/{ownerId}/pets
+    activate PetRes
+    PetRes->>OwnerRepo: findById(ownerId)
+    alt Owner exists
+        OwnerRepo-->>PetRes: Owner
+        PetRes->>PetRepo: save(Pet)
+        PetRepo-->>PetRes: saved Pet
+        PetRes-->>Client: 201 Created
+    else Owner not found
+        OwnerRepo-->>PetRes: empty
+        PetRes-->>Client: 404 Not Found
+    end
+    deactivate PetRes
+
+    Client->>PetRes: PUT /owners/*/pets/{petId}
+    activate PetRes
+    PetRes->>PetRepo: save(Pet)
+    PetRepo-->>PetRes: updated Pet
+    PetRes-->>Client: 204 No Content
+    deactivate PetRes
+
+    Client->>PetRes: GET /owners/*/pets/{petId}
+    activate PetRes
+    PetRes->>PetRepo: findById(petId)
+    alt Pet found
+        PetRepo-->>PetRes: Pet
+        PetRes-->>Client: 200 PetDetails
+    else Pet not found
+        PetRepo-->>PetRes: empty
+        PetRes-->>Client: 404 Not Found
+    end
+    deactivate PetRes
+
+    Client->>PetRes: GET /petTypes
+    activate PetRes
+    PetRes->>PetRepo: findPetTypes
+    PetRepo-->>PetRes: List of PetType
+    PetRes-->>Client: 200 PetTypes
+    deactivate PetRes
