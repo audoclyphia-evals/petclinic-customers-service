@@ -6,55 +6,78 @@ The `petclinic-customers-service` is a Spring Boot microservice responsible for 
 
 ```mermaid
 flowchart TB
-    %% Source: Context #1, Context #5 - CustomersServiceApplication.java
-    app([CustomersServiceApplication]) -->|Spring Boot| controllers
+    %% System Architecture for petclinic-customers-service microservice
+    %% Evidence-based diagram using code context
 
-    subgraph Web_Tier [Web Layer]
-        %% Source: Context #5 - OwnerResource.java, PetResource.java
-        owner_resource[OwnerResource]
-        pet_resource[PetResource]
-        %% Source: Context #5 - OwnerEntityMapper.java
-        owner_mapper[OwnerEntityMapper]
+    %% External Systems Tier
+    subgraph External_Systems [External Systems]
+        SD[Service Discovery]
+        MB[Metrics Backend]
     end
 
-    subgraph Model_Tier [Model Layer]
-        %% Source: Context #5 - Owner.java, Pet.java, PetType.java
-        owner[Owner Entity]
-        pet[Pet Entity]
-        pet_type[PetType Entity]
-        %% Source: Context #5 - OwnerRepository.java, PetRepository.java
-        owner_repo[(OwnerRepository)]
-        pet_repo[(PetRepository)]
+    %% Application Entry Point
+    subgraph Application_Tier [Application Entry Point]
+        CSA[CustomersServiceApplication]
     end
 
-    subgraph Config_Tier [Configuration]
-        %% Source: Context #5 - MetricConfig.java
-        metric_config[MetricConfig]
+    %% Web Layer Tier
+    subgraph Web_Layer [Web Layer]
+        OR[OwnerResource]
+        PR[PetResource]
+        RNF[ResourceNotFoundException]
+        OEM[OwnerEntityMapper]
+        MAPPER[Mapper]
     end
 
-    subgraph External_Tier [External Systems]
-        %% Source: Context #4 - pom.xml (MySQL, Eureka, Prometheus)
-        db[(Database)]
-        eureka{{Eureka Discovery}}
-        prometheus[(Prometheus)]
+    %% Model Layer Tier
+    subgraph Model_Layer [Model Layer]
+        OWN[Owner]
+        PET[Pet]
+        PT[PetType]
+        ORR[OwnerRepository]
+        PRP[PetRepository]
     end
 
-    %% Web Layer connections
-    owner_resource -->|injects| owner_mapper
-    owner_resource -->|queries| owner_repo
-    pet_resource -->|queries| pet_repo
+    %% Configuration Tier
+    subgraph Config_Layer [Configuration Layer]
+        MC[MetricConfig]
+    end
 
-    %% Model Layer connections
-    owner_repo -->|manages| owner
-    pet_repo -->|manages| pet
-    pet -->|belongsTo| owner
-    pet -->|hasType| pet_type
+    %% DTO/View Model Tier
+    subgraph DTO_Tier [DTOs and View Models]
+        OREQ[OwnerRequest]
+        PREQ[PetRequest]
+        PDET[PetDetails]
+    end
+
+    %% Relationships
+    CSA -->|enables discovery| SD
+    CSA -->|configures| MC
+    MC -->|exports metrics| MB
+
+    OR -->|uses| ORR
+    OR -->|uses| OEM
+    PR -->|uses| PRP
+    PR -->|uses| ORR
+    RNF -.->|throws| OR
+    RNF -.->|throws| PR
+
+    OEM -->|implements| MAPPER
+    OEM -->|maps to| OWN
+    OR -->|accepts| OREQ
+    PR -->|accepts| PREQ
+    PR -->|returns| PDET
+
+    ORR -->|queries| OWN
+    PRP -->|queries| PET
+    PRP -->|queries| PT
+    OWN -->|has many| PET
+    PET -->|belongs to| OWN
+    PET -->|is of type| PT
 
     %% External connections
-    owner_repo -->|JPA| db
-    pet_repo -->|JPA| db
-    app -->|registers| eureka
-    metric_config -->|exports metrics| prometheus
+    SD -.->|registers| CSA
+    MB -.->|receives metrics from| CSA
 ```
 
 ## Development
@@ -109,7 +132,7 @@ mvn clean package
 mvn spring-boot:run
 ```
 
-The service exposes its REST API on port **8081** (as configured in the Maven Docker profile). When running locally without infrastructure, HSQLDB provides an in-memory database.
+The service exposes its REST API on a port configured in `application.properties` (default is **8081** for Docker). When running locally without infrastructure, HSQLDB provides an in-memory database.
 
 ### Key Dependencies
 
@@ -129,131 +152,156 @@ The service exposes its REST API on port **8081** (as configured in the Maven Do
 
 The service manages three core entities:
 
-- **`Owner`** — Represents a pet owner with fields for name, address, and telephone. Maintains a one-to-many relationship with `Pet`.
-- **`Pet`** — Represents an individual pet with a name, birth date, type, and owner reference. Uses `@JsonIgnore` on the owner field to prevent circular serialization.
+- **`Owner`** — Represents a pet owner with fields for `firstName`, `lastName`, `address`, `city`, and `telephone`. Maintains a one-to-many relationship with `Pet` via the `pets` set. The `addPet()` method manages the bidirectional relationship between owners and pets.
+- **`Pet`** — Represents an individual pet with a name, birth date, type, and owner reference.
 - **`PetType`** — A lookup entity for pet categories (e.g., cat, dog).
 
-The `Owner.addPet()` method manages the bidirectional relationship between owners and pets.
-
-```mermaid
-sequenceDiagram
-    %% Source: Context #5 (OwnerResource class)
-    actor Client as HTTP Client
-    participant OR as OwnerResource
-    %% Source: Context #5 (OwnerEntityMapper class)
-    participant OEM as OwnerEntityMapper
-    %% Source: Context #5 (OwnerRepository interface)
-    participant Repo as OwnerRepository
-    %% Source: Context #5 (Owner entity class)
-    participant DB as "Database/JPA"
-
-    Note over Client,DB: Owner Management API Flow
-    %% Source: Context #5 (OwnerResource.createOwner method)
-    rect rgb(240, 248, 255)
-        Note right of Client: POST /owners
-        Client->>+OR: createOwner(OwnerRequest)
-        OR->>+OEM: map(null, ownerRequest)
-        OEM-->>-OR: Owner entity
-        OR->>+Repo: save(owner)
-        Repo->>DB: persist(Owner)
-        DB-->>Repo: Saved
-        Repo-->>-OR: Optional<Owner>
-        OR-->>-Client: 201 Created
-    end
-
-    %% Source: Context #5 (OwnerResource.findAll method)
-    rect rgb(245, 245, 245)
-        Note right of Client: GET /owners
-        Client->>+OR: findAll()
-        OR->>+Repo: findAll()
-        Repo->>DB: select * from owners
-        DB-->>Repo: List<Owner>
-        Repo-->>-OR: List<Owner>
-        OR-->>-Client: 200 OK with list
-    end
-
-    %% Source: Context #5 (OwnerResource.findOwner method)
-    rect rgb(255, 245, 238)
-        Note right of Client: GET /owners/{ownerId}
-        Client->>+OR: findOwner(ownerId)
-        OR->>+Repo: findById(ownerId)
-        Repo->>DB: select by id
-        DB-->>Repo: Optional<Owner>
-        Repo-->>-OR: Optional<Owner>
-        OR-->>-Client: 200 OK or 404
-    end
-
-    %% Source: Context #5 (OwnerResource.updateOwner method)
-    rect rgb(240, 255, 240)
-        Note right of Client: PUT /owners/{ownerId}
-        Client->>+OR: updateOwner(ownerId, ownerRequest)
-        OR->>+Repo: findById(ownerId)
-        Repo->>DB: select by id
-        DB-->>Repo: Optional<Owner>
-        Repo-->>-OR: existingOwner
-        opt owner exists
-            OR->>+OEM: map(existingOwner, ownerRequest)
-            OEM-->>-OR: updatedOwner
-            OR->>+Repo: save(updatedOwner)
-            Repo->>DB: update
-            DB-->>Repo: Saved
-            Repo-->>-OR: Updated
-            OR-->>-Client: 204 No Content
-        else owner not found
-            OR-->>-Client: 404 Not Found
-        end
-    end
-```
+Data access is provided by `OwnerRepository` and `PetRepository`, both extending `JpaRepository`. The `OwnerRepository` supports searching owners by last name prefix via `findByLastNameStartingWithIgnoreCase`. When a requested owner or pet is not found, the `ResourceNotFoundException` is thrown, returning an HTTP 404 status.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant Client as "HTTP Client"
-    participant PR as "PetResource"
-    participant PRepo as "PetRepository"
-    participant ORepo as "OwnerRepository"
+    participant OR as "OwnerResource"
+    participant ORQ as "OwnerRequest"
+    participant OEM as "OwnerEntityMapper"
+    participant Repo as "OwnerRepository"
+    participant O as "Owner"
+    participant RNF as "ResourceNotFoundException"
 
-    %% Fetch Pet Types endpoint
-    Client->>+PR: GET /petTypes
-    PR->>+PRepo: findPetTypes()
-    PRepo-->>-PR: List of PetType
-    PR-->>-Client: 200 OK with PetType list
+    Note over Client,RNF: Owner Management CRUD Flow
 
-    %% Create Pet flow
-    Client->>+PR: POST /owners/{ownerId}/pets
-    PR->>+ORepo: findById(ownerId)
-    alt Owner exists
-        ORepo-->>-PR: Optional Owner found
-        PR->>+PRepo: save(pet)
-        PRepo-->>-PR: saved Pet
-        PR-->>-Client: 201 Created with Pet
+    %% Create Owner Flow
+    Client->>OR: POST /owners (OwnerRequest)
+    activate OR
+    OR->>ORQ: Validate OwnerRequest
+    activate ORQ
+    ORQ-->>OR: Validated OwnerRequest
+    deactivate ORQ
+    OR->>OEM: map(new Owner(), ownerRequest)
+    activate OEM
+    OEM->>O: setFirstName/LastName/Address/City/Telephone
+    activate O
+    O-->>OEM: Owner
+    deactivate O
+    OEM-->>OR: Owner
+    deactivate OEM
+    OR->>Repo: save(owner)
+    activate Repo
+    Repo-->>OR: Saved Owner
+    deactivate Repo
+    OR-->>Client: 201 Created (Owner)
+    deactivate OR
+
+    %% Find Single Owner Flow
+    Client->>OR: GET /owners/{ownerId}
+    activate OR
+    OR->>Repo: findById(ownerId)
+    activate Repo
+    Repo-->>OR: Optional Owner
+    deactivate Repo
+    alt Owner found
+        OR-->>Client: Owner
     else Owner not found
-        ORepo-->>-PR: empty Optional
-        PR-->>Client: 404 Not Found
+        OR->>RNF: throw ResourceNotFoundException
+        activate RNF
+        RNF-->>Client: 404 Not Found
+        deactivate RNF
+    end
+    deactivate OR
+
+    %% Search Owners Flow
+    Client->>OR: GET /owners/search?lastName=*
+    activate OR
+    OR->>Repo: findByLastNameStartingWithIgnoreCase(lastName)
+    activate Repo
+    Repo-->>OR: List of Owners
+    deactivate Repo
+    OR-->>Client: List of Owners
+    deactivate OR
+
+    %% Update Owner Flow
+    Client->>OR: PUT /owners/{ownerId} (OwnerRequest)
+    activate OR
+    OR->>ORQ: Validate OwnerRequest
+    activate ORQ
+    ORQ-->>OR: Validated OwnerRequest
+    deactivate ORQ
+    OR->>Repo: findById(ownerId)
+    activate Repo
+    Repo-->>OR: Optional Owner
+    deactivate Repo
+    alt Owner found
+        OR->>OEM: map(existingOwner, ownerRequest)
+        activate OEM
+        OEM->>O: Update fields
+        activate O
+        O-->>OEM: Updated Owner
+        deactivate O
+        OEM-->>OR: Owner
+        deactivate OEM
+        OR->>Repo: save(owner)
+        activate Repo
+        Repo-->>OR: Saved Owner
+        deactivate Repo
+        OR-->>Client: 204 No Content
+    else Owner not found
+        OR->>RNF: throw ResourceNotFoundException
+        activate RNF
+        RNF-->>Client: 404 Not Found
+        deactivate RNF
+    end
+    deactivate OR
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Client
+    participant PR as PetResource
+    participant Pet as Pet
+    participant PRepo as PetRepository
+    participant ORepo as OwnerRepository
+    participant PT as PetType
+
+    rect rgb(230, 245, 255)
+    note over Client, PT: Create Pet Flow
+    Client->>+PR: POST /owners/{ownerId}/pets
+    PR->>ORepo: Find owner by ID
+    ORepo-->>PR: Return owner
+    PR->>Pet: Create pet from request
+    PR->>PRepo: Save pet
+    PRepo-->>PR: Return saved pet
+    PR-->>-Client: 201 Created
     end
 
-    %% Update Pet flow
+    rect rgb(255, 245, 230)
+    note over Client, PT: Update Pet Flow
     Client->>+PR: PUT /owners/*/pets/{petId}
-    PR->>+PRepo: findById(petId)
-    alt Pet exists
-        PRepo-->>-PR: Optional Pet found
-        PR->>+PRepo: save(pet)
-        PRepo-->>-PR: saved Pet
-        PR-->>-Client: 204 No Content
-    else Pet not found
-        PRepo-->>-PR: empty Optional
-        PR-->>Client: 404 Not Found
+    PR->>PRepo: Find pet by ID
+    PRepo-->>PR: Return existing pet
+    PR->>Pet: Update pet fields
+    PR->>PRepo: Save updated pet
+    PRepo-->>PR: Return updated pet
+    PR-->>-Client: 204 No Content
     end
 
-    %% Find Pet flow
+    rect rgb(230, 255, 230)
+    note over Client, PT: Find Pet Flow
     Client->>+PR: GET owners/*/pets/{petId}
-    PR->>+PRepo: findById(petId)
-    alt Pet exists
-        PRepo-->>-PR: Optional Pet found
-        PR-->>-Client: 200 OK with PetDetails
-    else Pet not found
-        PRepo-->>-PR: empty Optional
-        PR-->>Client: 404 Not Found
+    PR->>PRepo: Find pet by ID
+    PRepo-->>PR: Return pet
+    PR-->>-Client: 200 OK (PetDetails)
+    end
+
+    rect rgb(255, 230, 245)
+    note over Client, PT: Get PetTypes Flow
+    Client->>+PR: GET /petTypes
+    PR->>PRepo: findPetTypes()
+    PRepo->>PT: Query pet types
+    PT-->>PRepo: Return pet type list
+    PRepo-->>PR: Return pet type list
+    PR-->>-Client: 200 OK (List of PetType)
     end
 ```
 
@@ -278,7 +326,7 @@ Tests reside under `src/test/java/org/springframework/samples/petclinic/customer
 
 | Test File | Coverage |
 |---|---|
-| `web/PetResourceTest` | `PetResource` controller endpoints |
+| `web/PetResourceTest` | `PetResource` controller endpoints — verifies pet type retrieval, pet creation, and pet update operations using `@WebMvcTest` with mocked dependencies |
 
 ### Writing New Tests
 
@@ -286,6 +334,7 @@ Tests reside under `src/test/java/org/springframework/samples/petclinic/customer
 - Assertions are written with **AssertJ** (`assertj-core`).
 - Controller tests use **`spring-boot-starter-webmvc-test`** for mock MVC testing.
 - Test classes are named `{ClassName}Test` and placed in the same package as the class under test.
+- Dependencies such as `OwnerRepository`, `PetRepository`, and `OwnerEntityMapper` should be mocked using `@MockBean`.
 
 ```java
 // Example test pattern for a REST controller
@@ -303,7 +352,7 @@ class PetResourceTest {
 }
 ```
 
-When adding new endpoints or modifying existing ones, ensure corresponding test cases are added or updated.
+When adding new endpoints or modifying existing ones (such as the `OwnerResource` or `PetResource` controllers), ensure corresponding test cases are added or updated.
 
 ## Contributing
 
@@ -342,5 +391,3 @@ Issues should be reported in the project's issue tracker with:
 - Steps to reproduce (for bugs)
 - Expected vs. actual behavior
 - Environment details (Java version, OS, database)
-
-For broader PetClinic microservices architecture questions, see the [Architecture documentation](ARCHITECTURE.md).

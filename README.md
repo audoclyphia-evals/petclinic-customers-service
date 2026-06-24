@@ -8,94 +8,107 @@
 
 A Spring Boot microservice that manages owner and pet data for the PetClinic application. This service handles owner registration, pet management, and pet type lookups through a RESTful API, backed by JPA persistence with MySQL or HSQLDB.
 
-## Overview
+The PetClinic Customers Service is one of several microservices in the PetClinic Microservices architecture. It is responsible for the **Owner** and **Pet** domain models — creating, updating, retrieving owners, and managing the pets associated with those owners.
 
-The PetClinic Customers Service is one of several microservices in the [PetClinic Microservices](https://github.com/spring-petclinic/spring-petclinic-microservices) architecture. It is responsible for the **Owner** and **Pet** domain models — creating, updating, retrieving owners, and managing the pets associated with those owners.
-
-**Sibling services** in the ecosystem:
-
-- `petclinic-api-gateway` — API gateway routing external traffic to internal services
-- `petclinic-vets-service` — Manages veterinarian data and specialties
-- `petclinic-visits-service` — Records and retrieves pet visit history
-
-This service registers itself with **Netflix Eureka** for service discovery and supports **Spring Cloud Config** for centralized configuration. The following diagram illustrates the high-level architecture:
+This service registers itself with **Netflix Eureka** for service discovery. The following diagram illustrates the high-level architecture:
 
 ```mermaid
 flowchart TB
-    %% Source: Context #1, Context #5 - CustomersServiceApplication.java
-    app([CustomersServiceApplication]) -->|Spring Boot| controllers
+    %% System Architecture for petclinic-customers-service microservice
+    %% Evidence-based diagram using code context
 
-    subgraph Web_Tier [Web Layer]
-        %% Source: Context #5 - OwnerResource.java, PetResource.java
-        owner_resource[OwnerResource]
-        pet_resource[PetResource]
-        %% Source: Context #5 - OwnerEntityMapper.java
-        owner_mapper[OwnerEntityMapper]
+    %% External Systems Tier
+    subgraph External_Systems [External Systems]
+        SD[Service Discovery]
+        MB[Metrics Backend]
     end
 
-    subgraph Model_Tier [Model Layer]
-        %% Source: Context #5 - Owner.java, Pet.java, PetType.java
-        owner[Owner]
-        pet[Pet]
-        pet_type[PetType]
-        %% Source: Context #5 - OwnerRepository.java, PetRepository.java
-        owner_repo[(OwnerRepository)]
-        pet_repo[(PetRepository)]
+    %% Application Entry Point
+    subgraph Application_Tier [Application Entry Point]
+        CSA[CustomersServiceApplication]
     end
 
-    subgraph Config_Tier [Configuration]
-        %% Source: Context #5 - MetricConfig.java
-        metric_config[MetricConfig]
+    %% Web Layer Tier
+    subgraph Web_Layer [Web Layer]
+        OR[OwnerResource]
+        PR[PetResource]
+        RNF[ResourceNotFoundException]
+        OEM[OwnerEntityMapper]
+        MAPPER[Mapper]
     end
 
-    subgraph External_Tier [External Systems]
-        %% Source: Context #4 - pom.xml (MySQL, Eureka, Prometheus)
-        db[(Database)]
-        eureka{{Eureka Discovery}}
-        prometheus[(Prometheus)]
+    %% Model Layer Tier
+    subgraph Model_Layer [Model Layer]
+        OWN[Owner]
+        PET[Pet]
+        PT[PetType]
+        ORR[OwnerRepository]
+        PRP[PetRepository]
     end
 
-    %% Web Layer connections
-    owner_resource -->|injects| owner_mapper
-    owner_resource -->|queries| owner_repo
-    pet_resource -->|queries| pet_repo
+    %% Configuration Tier
+    subgraph Config_Layer [Configuration Layer]
+        MC[MetricConfig]
+    end
 
-    %% Model Layer connections
-    owner_repo -->|manages| owner
-    pet_repo -->|manages| pet
-    pet -->|belongsTo| owner
-    pet -->|hasType| pet_type
+    %% DTO/View Model Tier
+    subgraph DTO_Tier [DTOs and View Models]
+        OREQ[OwnerRequest]
+        PREQ[PetRequest]
+        PDET[PetDetails]
+    end
+
+    %% Relationships
+    CSA -->|enables discovery| SD
+    CSA -->|configures| MC
+    MC -->|exports metrics| MB
+
+    OR -->|uses| ORR
+    OR -->|uses| OEM
+    PR -->|uses| PRP
+    PR -->|uses| ORR
+    RNF -.->|throws| OR
+    RNF -.->|throws| PR
+
+    OEM -->|implements| MAPPER
+    OEM -->|maps to| OWN
+    OR -->|accepts| OREQ
+    PR -->|accepts| PREQ
+    PR -->|returns| PDET
+
+    ORR -->|queries| OWN
+    PRP -->|queries| PET
+    PRP -->|queries| PT
+    OWN -->|has many| PET
+    PET -->|belongs to| OWN
+    PET -->|is of type| PT
 
     %% External connections
-    owner_repo -->|JPA| db
-    pet_repo -->|JPA| db
-    app -->|registers| eureka
-    metric_config -->|exports metrics| prometheus
+    SD -.->|registers| CSA
+    MB -.->|receives metrics from| CSA
 ```
 
-## Features
-
-The service provides the following capabilities:
+## 🎯 Features
 
 - **Owner CRUD Operations** — Create, retrieve, update, and list pet owners via REST endpoints
+- **Owner Search** — Search for owners by last name prefix (case-insensitive) via `GET /owners/search?lastName={query}`
 - **Pet Management** — Create and update pets, associate them with owners, and retrieve individual pet details
 - **Pet Type Lookup** — Fetch available pet types (e.g., cat, dog) for reference data
 - **JPA Persistence** — Entity classes with JPA mappings for Owner, Pet, and PetType backed by relational storage
-- **Service Discovery** — Registers with Netflix Eureka for dynamic service location in the microservice fleet
-- **Spring Cloud Config** — Externalized configuration support for multi-environment deployments
+- **Service Discovery** — Registers with Netflix Eureka for dynamic service location
 - **Observability** — Micrometer metrics with Prometheus registry, Spring Boot Actuator, and Zipkin tracing integration
-- **Chaos Engineering** — Chaos Monkey support for resilience testing
+- **Error Handling** — `ResourceNotFoundException` returns standardized HTTP 404 responses when owners or pets are not found
+- **Unit Tests** — Test coverage for pet endpoint functionality via `PetResourceTest`
 
-## Requirements
+## 📋 Requirements
 
 - **Java** 17 or higher
 - **Maven** 3.x
 - **MySQL** 8.x (production) or **HSQLDB** (default/in-memory for local development)
-- **Git** (for cloning the repository)
 
-The service expects the parent POM `spring-petclinic-microservices` version 4.0.1. This is resolved automatically by Maven if the parent repository is accessible. With these prerequisites in place, you can proceed to install and run the service.
+The service expects the parent POM `spring-petclinic-microservices` version 4.0.1. This is resolved automatically by Maven if the parent repository is accessible.
 
-## Installation
+## ⚙️ Installation
 
 ```bash
 # Clone the repository
@@ -115,7 +128,7 @@ To build the Docker image:
 mvn package -PbuildDocker
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
 1. **Build the project:**
 
@@ -139,11 +152,36 @@ curl http://localhost:8081/owners
 
 An empty list `[]` (or a list of existing owners) confirms the service is up.
 
-## Usage
+## 📖 Usage
 
-The following examples demonstrate how to interact with the primary API endpoints.
+The service exposes REST endpoints for Owner and Pet management. For a comprehensive, machine-readable API specification, see [api_documentation.yaml](api_documentation.yaml).
 
-### Create an Owner
+### Owner Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/owners` | Create a new owner (returns `201 Created`) |
+| `GET` | `/owners` | Retrieve all owners |
+| `GET` | `/owners/search?lastName={query}` | Search owners by last name prefix (case-insensitive); returns all owners when blank |
+| `GET` | `/owners/{ownerId}` | Retrieve a single owner by ID |
+| `PUT` | `/owners/{ownerId}` | Update an existing owner (returns `204 No Content`) |
+
+### Pet Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/petTypes` | Retrieve all available pet types |
+| `POST` | `/owners/{ownerId}/pets` | Create a new pet for an owner (returns `201 Created`) |
+| `GET` | `/owners/*/pets/{petId}` | Retrieve a pet by ID |
+| `PUT` | `/owners/*/pets/{petId}` | Update an existing pet (returns `204 No Content`) |
+
+### Request/Response Notes
+
+- Owner creation and update accept an `OwnerRequest` body with fields: `firstName`, `lastName`, `address`, `city`, `telephone`
+- Pet creation and update accept a `PetRequest` body with fields: `id`, `name`, `birthDate`, `typeId`
+- Pet retrieval returns a `PetDetails` record with pet information
+
+### Example: Create an Owner
 
 ```bash
 curl -X POST http://localhost:8081/owners \
@@ -157,19 +195,25 @@ curl -X POST http://localhost:8081/owners \
   }'
 ```
 
-### Retrieve All Owners
+### Example: Retrieve All Owners
 
 ```bash
 curl http://localhost:8081/owners
 ```
 
-### Retrieve an Owner by ID
+### Example: Search Owners by Last Name
 
 ```bash
-curl http://localhost:8081/owners/1
+# Search by last name prefix (case-insensitive)
+curl http://localhost:8081/owners/search?lastName=Doe
+
+# Omit or leave blank to return all owners
+curl http://localhost:8081/owners/search
 ```
 
-### Update an Owner
+The search endpoint performs a case-insensitive prefix match on the `lastName` field. When the `lastName` parameter is blank or omitted, all owners are returned.
+
+### Example: Update an Owner
 
 ```bash
 curl -X PUT http://localhost:8081/owners/1 \
@@ -183,13 +227,13 @@ curl -X PUT http://localhost:8081/owners/1 \
   }'
 ```
 
-### Get Available Pet Types
+### Example: Get Available Pet Types
 
 ```bash
 curl http://localhost:8081/petTypes
 ```
 
-### Create a Pet for an Owner
+### Example: Create a Pet for an Owner
 
 ```bash
 curl -X POST http://localhost:8081/owners/1/pets \
@@ -201,13 +245,13 @@ curl -X POST http://localhost:8081/owners/1/pets \
   }'
 ```
 
-### Retrieve a Pet by ID
+### Example: Retrieve a Pet by ID
 
 ```bash
 curl http://localhost:8081/owners/1/pets/1
 ```
 
-### Update a Pet
+### Example: Update a Pet
 
 ```bash
 curl -X PUT http://localhost:8081/owners/1/pets/1 \
@@ -220,219 +264,14 @@ curl -X PUT http://localhost:8081/owners/1/pets/1 \
   }'
 ```
 
-## API Reference
+### Error Responses
 
-For a comprehensive, machine-readable specification, the OpenAPI 3.0.3 document is provided below. This details all endpoints, parameters, and expected responses.
+- **`404 Not Found`** — Returned by `ResourceNotFoundException` when a requested owner or pet does not exist. This custom runtime exception is annotated with `@ResponseStatus(HttpStatus.NOT_FOUND)` to ensure consistent 404 responses across all resource lookups.
+- **`400 Bad Request`** — Returned for validation failures (e.g., `@Min(1)` on path variables, `@NotBlank` on required fields)
 
-```yaml
-openapi: 3.0.3
-info:
-  title: API Documentation
-  description: Auto-generated API documentation
-  version: 1.0.0
-paths:
-  /petTypes:
-    get:
-      summary: Retrieve all pet types
-      description: Returns a list of all available pet types from the repository
-      operationId: getPetTypes
-      tags:
-      - PetType
-      responses:
-        '200':
-          description: Successful retrieval of pet types list
-        '500':
-          description: Internal server error
-  /owners/{ownerId}/pets:
-    post:
-      summary: Create a new pet for an owner
-      description: Creates a new pet record associated with the specified owner
-      operationId: createPetForOwner
-      tags:
-      - Pets
-      responses:
-        '201':
-          description: Pet created successfully
-        '400':
-          description: Invalid request
-        '404':
-          description: Owner not found
-        '500':
-          description: Internal server error
-      parameters:
-      - name: ownerId
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-        description: Unique identifier of the owner
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: []
-              properties: {}
-  /owners:
-    post:
-      summary: Create a new owner
-      description: Creates a new owner entity from the provided request data and returns
-        the created owner.
-      operationId: createOwner
-      tags:
-      - Owner
-      responses:
-        '201':
-          description: Owner created successfully
-        '400':
-          description: Bad request (validation error)
-        '500':
-          description: Internal server error
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ownerRequest:
-                  type: object
-                  description: Owner creation request data
-    get:
-      summary: Retrieve all owners
-      description: Returns a list of all owners in the system.
-      operationId: getOwners
-      tags:
-      - Owner
-      responses:
-        '200':
-          description: Success
-  /owners/{ownerId}:
-    get:
-      summary: Retrieve a single owner by ID
-      description: Fetches an owner record using their unique identifier.
-      operationId: findOwner
-      tags:
-      - Owner
-      responses:
-        '200':
-          description: Owner found successfully
-        '404':
-          description: Owner not found
-        '400':
-          description: Invalid owner ID provided
-        '500':
-          description: Internal server error
-      parameters:
-      - name: ownerId
-        in: path
-        required: true
-        schema:
-          type: integer
-        description: Unique identifier of the owner, must be at least 1
-    put:
-      summary: Update an existing owner
-      description: Updates owner details by ID using provided data
-      operationId: updateOwner
-      tags:
-      - Owner
-      responses:
-        '204':
-          description: Owner updated successfully
-        '400':
-          description: Invalid input or validation error
-        '401':
-          description: Unauthorized access
-        '404':
-          description: Owner not found
-        '500':
-          description: Internal server error
-      parameters:
-      - name: ownerId
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-        description: Unique identifier of the owner
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              description: Owner update data
-  /owners/*/pets/{petId}:
-    get:
-      summary: Retrieve a pet by ID
-      description: Retrieves a pet by ID and returns detailed information about the
-        pet
-      operationId: findPet
-      tags:
-      - Pets
-      responses:
-        '200':
-          description: Success
-        '400':
-          description: Bad request
-        '401':
-          description: Unauthorized
-        '500':
-          description: Internal server error
-      parameters:
-      - name: petId
-        in: path
-        required: true
-        schema:
-          type: integer
-        description: Pet identifier
-    put:
-      summary: Update an existing pet
-      description: Updates pet details for a given pet ID using pet request body.
-      operationId: updatePet
-      tags:
-      - Pets
-      responses:
-        '204':
-          description: No Content
-        '400':
-          description: Bad request
-        '404':
-          description: Pet not found
-        '500':
-          description: Internal server error
-      parameters:
-      - name: petId
-        in: path
-        required: true
-        schema:
-          type: integer
-        description: ID of the pet to update
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - id
-              properties:
-                id:
-                  type: integer
-                  description: Pet identifier
-            example:
-              id: 1
-tags:
-- name: Owner
-- name: PetType
-- name: Pets
-```
-
-## Additional Documentation
+## 📚 Additional Documentation
 
 For more detailed information, see the following documentation:
 
-- [PetClinic Customers Service Architecture](ARCHITECTURE.md) - Provides a high-level overview of the microservice's architecture, components, data flow, and integration points.
-- [Contributing Guidelines](CONTRIBUTING.md) - Outlines development setup, coding standards, testing procedures, and guidelines for contributing to this Spring Boot microservice.
+- [Contributing Guidelines](CONTRIBUTING.md) - Provides development setup instructions, testing guidelines, and coding standards for contributors, essential for collaborative development.
+- [Architecture Overview](ARCHITECTURE.md) - Documents the system architecture, layer structure, key components, and integration points, offering detailed explanation complementing the architecture diagram.

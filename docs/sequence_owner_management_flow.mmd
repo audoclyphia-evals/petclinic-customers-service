@@ -1,0 +1,93 @@
+sequenceDiagram
+    autonumber
+    participant Client as "HTTP Client"
+    participant OR as "OwnerResource"
+    participant ORQ as "OwnerRequest"
+    participant OEM as "OwnerEntityMapper"
+    participant Repo as "OwnerRepository"
+    participant O as "Owner"
+    participant RNF as "ResourceNotFoundException"
+
+    Note over Client,RNF: Owner Management CRUD Flow
+
+    %% Create Owner Flow
+    Client->>OR: POST /owners (OwnerRequest)
+    activate OR
+    OR->>ORQ: Validate OwnerRequest
+    activate ORQ
+    ORQ-->>OR: Validated OwnerRequest
+    deactivate ORQ
+    OR->>OEM: map(new Owner(), ownerRequest)
+    activate OEM
+    OEM->>O: setFirstName/LastName/Address/City/Telephone
+    activate O
+    O-->>OEM: Owner
+    deactivate O
+    OEM-->>OR: Owner
+    deactivate OEM
+    OR->>Repo: save(owner)
+    activate Repo
+    Repo-->>OR: Saved Owner
+    deactivate Repo
+    OR-->>Client: 201 Created (Owner)
+    deactivate OR
+
+    %% Find Single Owner Flow
+    Client->>OR: GET /owners/{ownerId}
+    activate OR
+    OR->>Repo: findById(ownerId)
+    activate Repo
+    Repo-->>OR: Optional Owner
+    deactivate Repo
+    alt Owner found
+        OR-->>Client: Owner
+    else Owner not found
+        OR->>RNF: throw ResourceNotFoundException
+        activate RNF
+        RNF-->>Client: 404 Not Found
+        deactivate RNF
+    end
+    deactivate OR
+
+    %% Search Owners Flow
+    Client->>OR: GET /owners/search?lastName=*
+    activate OR
+    OR->>Repo: findByLastNameStartingWithIgnoreCase(lastName)
+    activate Repo
+    Repo-->>OR: List of Owners
+    deactivate Repo
+    OR-->>Client: List of Owners
+    deactivate OR
+
+    %% Update Owner Flow
+    Client->>OR: PUT /owners/{ownerId} (OwnerRequest)
+    activate OR
+    OR->>ORQ: Validate OwnerRequest
+    activate ORQ
+    ORQ-->>OR: Validated OwnerRequest
+    deactivate ORQ
+    OR->>Repo: findById(ownerId)
+    activate Repo
+    Repo-->>OR: Optional Owner
+    deactivate Repo
+    alt Owner found
+        OR->>OEM: map(existingOwner, ownerRequest)
+        activate OEM
+        OEM->>O: Update fields
+        activate O
+        O-->>OEM: Updated Owner
+        deactivate O
+        OEM-->>OR: Owner
+        deactivate OEM
+        OR->>Repo: save(owner)
+        activate Repo
+        Repo-->>OR: Saved Owner
+        deactivate Repo
+        OR-->>Client: 204 No Content
+    else Owner not found
+        OR->>RNF: throw ResourceNotFoundException
+        activate RNF
+        RNF-->>Client: 404 Not Found
+        deactivate RNF
+    end
+    deactivate OR

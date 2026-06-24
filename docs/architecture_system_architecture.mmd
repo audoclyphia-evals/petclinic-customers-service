@@ -1,0 +1,73 @@
+flowchart TB
+    %% System Architecture for petclinic-customers-service microservice
+    %% Evidence-based diagram using code context
+
+    %% External Systems Tier
+    subgraph External_Systems [External Systems]
+        SD[Service Discovery]
+        MB[Metrics Backend]
+    end
+
+    %% Application Entry Point
+    subgraph Application_Tier [Application Entry Point]
+        CSA[CustomersServiceApplication]
+    end
+
+    %% Web Layer Tier
+    subgraph Web_Layer [Web Layer]
+        OR[OwnerResource]
+        PR[PetResource]
+        RNF[ResourceNotFoundException]
+        OEM[OwnerEntityMapper]
+        MAPPER[Mapper]
+    end
+
+    %% Model Layer Tier
+    subgraph Model_Layer [Model Layer]
+        OWN[Owner]
+        PET[Pet]
+        PT[PetType]
+        ORR[OwnerRepository]
+        PRP[PetRepository]
+    end
+
+    %% Configuration Tier
+    subgraph Config_Layer [Configuration Layer]
+        MC[MetricConfig]
+    end
+
+    %% DTO/View Model Tier
+    subgraph DTO_Tier [DTOs and View Models]
+        OREQ[OwnerRequest]
+        PREQ[PetRequest]
+        PDET[PetDetails]
+    end
+
+    %% Relationships
+    CSA -->|enables discovery| SD
+    CSA -->|configures| MC
+    MC -->|exports metrics| MB
+
+    OR -->|uses| ORR
+    OR -->|uses| OEM
+    PR -->|uses| PRP
+    PR -->|uses| ORR
+    RNF -.->|throws| OR
+    RNF -.->|throws| PR
+
+    OEM -->|implements| MAPPER
+    OEM -->|maps to| OWN
+    OR -->|accepts| OREQ
+    PR -->|accepts| PREQ
+    PR -->|returns| PDET
+
+    ORR -->|queries| OWN
+    PRP -->|queries| PET
+    PRP -->|queries| PT
+    OWN -->|has many| PET
+    PET -->|belongs to| OWN
+    PET -->|is of type| PT
+
+    %% External connections
+    SD -.->|registers| CSA
+    MB -.->|receives metrics from| CSA

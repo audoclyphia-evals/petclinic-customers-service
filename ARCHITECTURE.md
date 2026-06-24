@@ -1,4 +1,4 @@
-# PetClinic Customers Service
+# Architecture Overview
 
 **REST API microservice managing pet owners and their pets for the PetClinic application.**
 
@@ -19,6 +19,8 @@ flowchart TB
         pet_resource[PetResource]
         %% Source: Context #5 - OwnerEntityMapper.java
         owner_mapper[OwnerEntityMapper]
+        %% Source: Context #5 - ResourceNotFoundException.java
+        not_found_exc[ResourceNotFoundException]
     end
 
     subgraph Model_Tier [Model Layer]
@@ -46,7 +48,9 @@ flowchart TB
     %% Web Layer connections
     owner_resource -->|injects| owner_mapper
     owner_resource -->|queries| owner_repo
+    owner_resource -.->|throws| not_found_exc
     pet_resource -->|queries| pet_repo
+    pet_resource -.->|throws| not_found_exc
 
     %% Model Layer connections
     owner_repo -->|manages| owner
@@ -71,9 +75,13 @@ flowchart TB
 | **Mapping** | `customers.web.mapper` | Generic `Mapper` interface and `OwnerEntityMapper` for converting request DTOs to entities |
 | **Configuration** | `customers.config` | Micrometer metrics configuration for application monitoring |
 
+### Error Handling
+
+`ResourceNotFoundException` is a custom `RuntimeException` annotated with `@ResponseStatus(HttpStatus.NOT_FOUND)`. Both `OwnerResource` and `PetResource` throw this exception when a requested resource (owner or pet) does not exist, resulting in a standard HTTP 404 response.
+
 ### Owner Management Flow
 
-The `OwnerResource` controller handles owner lifecycle operations. Incoming requests use the `OwnerRequest` DTO, which the `OwnerEntityMapper` converts into `Owner` entity objects before persistence via `OwnerRepository`.
+The `OwnerResource` controller handles owner lifecycle operations. Incoming requests use the `OwnerRequest` DTO, which the `OwnerEntityMapper` converts into `Owner` entity objects before persistence via `OwnerRepository`. The controller also supports searching owners by last name prefix through a dedicated search endpoint.
 
 ```mermaid
 sequenceDiagram
@@ -92,12 +100,12 @@ sequenceDiagram
     rect rgb(240, 248, 255)
         Note right of Client: POST /owners
         Client->>+OR: createOwner(OwnerRequest)
-        OR->>+OEM: map(null, ownerRequest)
+        OR->>+OEM: map(new Owner(), ownerRequest)
         OEM-->>-OR: Owner entity
         OR->>+Repo: save(owner)
         Repo->>DB: persist(Owner)
         DB-->>Repo: Saved
-        Repo-->>-OR: Optional<Owner>
+        Repo-->>-OR: Owner
         OR-->>-Client: 201 Created
     end
 
@@ -121,6 +129,24 @@ sequenceDiagram
         DB-->>Repo: Optional<Owner>
         Repo-->>-OR: Optional<Owner>
         OR-->>-Client: 200 OK or 404
+    end
+
+    %% Source: Context #5 (OwnerResource.searchOwners method)
+    rect rgb(255, 255, 230)
+        Note right of Client: GET /owners/search?lastName=...
+        Client->>+OR: searchOwners(lastName)
+        alt lastName is blank
+            OR->>+Repo: findAll()
+            Repo->>DB: select * from owners
+            DB-->>Repo: List<Owner>
+            Repo-->>-OR: List<Owner>
+        else lastName provided
+            OR->>+Repo: findByLastNameStartingWithIgnoreCase(lastName)
+            Repo->>DB: select where last_name ILIKE 'lastName%'
+            DB-->>Repo: List<Owner>
+            Repo-->>-OR: List<Owner>
+        end
+        OR-->>-Client: 200 OK with filtered list
     end
 
     %% Source: Context #5 (OwnerResource.updateOwner method)
@@ -168,6 +194,7 @@ sequenceDiagram
     PR->>+ORepo: findById(ownerId)
     alt Owner exists
         ORepo-->>-PR: Optional Owner found
+        PR->>PR: owner.addPet(pet)
         PR->>+PRepo: save(pet)
         PRepo-->>-PR: saved Pet
         PR-->>-Client: 201 Created with Pet
