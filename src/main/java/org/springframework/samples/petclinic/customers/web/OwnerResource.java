@@ -78,6 +78,18 @@ class OwnerResource {
     }
 
     /**
+     * Search owners by last name prefix (case-insensitive).
+     * Returns all owners when lastName is blank.
+     */
+    @GetMapping("/search")
+    public List<Owner> searchOwners(@RequestParam(value = "lastName", required = false, defaultValue = "") String lastName) {
+        if (lastName.isBlank()) {
+            return ownerRepository.findAll();
+        }
+        return ownerRepository.findByLastNameStartingWithIgnoreCase(lastName);
+    }
+
+    /**
      * Update Owner
      */
     @PutMapping(value = "/{ownerId}")
